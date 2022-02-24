@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script>
+      // 1rem = 10px
+      document.documentElement.style.fontSize =
+        document.documentElement.clientWidth / 37.5 + "px";
+    </script>
+    <style>
+      body {
+        margin: 0;
+      }
+      div {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .blank-cell-group,
+      .char-cell-group {
+        width: 100%;
+        flex-direction: row;
+      }
+
+      .blank-cell-group .cell-item,
+      .char-cell-group .cell-item {
+        width: 25%;
+        height: 25vw;
+        padding: 0.5rem;
+        box-sizing: border-box;
+      }
+
+      .char-cell-group {
+        flex-wrap: wrap;
+        margin-top: 5rem;
+      }
+      .blank-cell-group .cell-item .wrapper,
+      .char-cell-group .cell-item .wrapper {
+        width: 100%;
+        height: 100%;
+        border: 0.1rem solid #ddd;
+        box-sizing: border-box;
+      }
+
+      .char-cell-group .cell-item .wrapper {
+        border: none;
+        background-color: orange;
+        font-size: 3rem;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="blank-cell-group">
+        <div class="cell-item">
+          <div class="wrapper"></div>
+        </div>
+        <div class="cell-item">
+          <div class="wrapper"></div>
+        </div>
+        <div class="cell-item">
+          <div class="wrapper"></div>
+        </div>
+        <div class="cell-item">
+          <div class="wrapper"></div>
+        </div>
+      </div>
+      <!--  -->
+      <div class="char-cell-group"></div>
+    </div>
+    <script>
+      (() => {
+        let idioms = ["诗情画意", "南来北往", "一团和气", "落花流水"];
+
+        let resArr = [];
+
+        let oBlanks = document.querySelectorAll(".blank-cell-group .wrapper");
+        let blankAreas = [];
+
+        let oCharCellGroup = document.querySelector(".char-cell-group");
+        let charCollection = [];
+        let charAreas = [];
+        let oChars = null;
+
+        let startX = 0,
+          startY = 0,
+          cellX = 0,
+          cellY = 0,
+          mouseX = 0,
+          mouseY = 0;
+        const init = () => {
+          charCollection = formatCharsArr(idioms);
+
+          render();
+
+          oChars = oCharCellGroup.querySelectorAll(".cell-item .wrapper");
+          getAreas(oBlanks, blankAreas);
+          getAreas(oChars, charAreas);
+
+          bindEvent();
+        };
+
+        function formatCharsArr(idioms) {
+          let _arr = [];
+
+          idioms.forEach((item) => {
+            _arr = _arr.concat(item.split(""));
+          });
+
+          return _arr.sort(randomSort);
+        }
+
+        function randomSort(a, b) {
+          return Math.random() > 0.5 ? -1 : 1;
+        }
+
+        function charCellTpl(char, index) {
+          return `
+          <div class="cell-item">
+            <div class="wrapper"  data-index="${index}">${char}</div>
+          </div>
+          `;
+        }
+
+        function render() {
+          let list = "";
+          charCollection.forEach((char, index) => {
+            list += charCellTpl(char, index);
+          });
+
+          oCharCellGroup.innerHTML = list;
+        }
+
+        function bindEvent() {
+          let oChar = null;
+          for (let i = 0; i < oChars.length; i++) {
+            oChar = oChars[i];
+
+            oChar.addEventListener("touchstart", handlerTouchStart, false);
+            oChar.addEventListener("touchmove", handlerTouchMove, false);
+            oChar.addEventListener("touchend", handlerTouchEnd, false);
+          }
+        }
+
+        function getAreas(domCollection, arrWrapper) {
+          let startX = 0,
+            startY = 0,
+            oItem = null;
+
+          for (let i = 0; i < domCollection.length; i++) {
+            oItem = domCollection[i];
+            startX = oItem.offsetLeft;
+            startY = oItem.offsetTop;
+
+            arrWrapper.push({
+              startX,
+              startY,
+            });
+          }
+        }
+
+        function handlerTouchStart(e) {
+          cellW = this.offsetWidth;
+          cellH = this.offsetHeight;
+
+          cellX = this.offsetLeft;
+          cellY = this.offsetTop;
+
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+
+          mouseX = startX - cellX;
+          mouseY = startY - cellY;
+
+          this.style.width = cellW / 10 + "rem";
+          this.style.height = cellH / 10 + "rem";
+
+          this.style.position = "fixed";
+
+          setPosition(this, { startX: cellX, startY: cellY });
+        }
+        function handlerTouchMove(e) {
+          e.preventDefault();
+
+          const moveX = e.touches[0].clientX;
+          const moveY = e.touches[0].clientY;
+
+          cellX = moveX - mouseX;
+          cellY = moveY - mouseY;
+
+          setPosition(this, { startX: cellX, startY: cellY });
+        }
+        function handlerTouchEnd(e) {
+
+          // 在结果数组中找到当前元素
+          const indexs = resArr.findIndex((item) => item && item.el === this);
+          // 如果当前元素与目标元素可以cover
+          if (indexs > -1 && canCover(oBlanks[indexs], this)) {
+            let { startX, startY } = blankAreas[indexs];
+            setPosition(this, { startX, startY });
+            return;
+          } else {
+            resArr[indexs] = undefined;
+          }
+
+
+          for (let i = 0; i < blankAreas.length; i++) {
+            if (resArr[i] !== undefined) {
+              continue;
+            }
+
+            let { startX, startY } = blankAreas[i];
+
+
+            if (canCover(oBlanks[i], this)) {
+              setResArr(this, i);
+              setPosition(this, { startX, startY });
+
+              if (resArr.filter(item => item).length === 4) {
+                setTimeout(() => {
+                  if (checkResult()) {
+                    alert("对了");
+                  } else {
+                    alert("错了");
+                  }
+                  resetPosition();
+                }, 1000);
+              }
+              return;
+            }
+          }
+
+          const _index = this.dataset.index;
+
+          const charArea = charAreas[_index];
+          
+          setPosition(this, { ...charArea });
+        }
+
+        function setPosition(el, { startX, startY }) {
+          el.style.left = startX / 10 + "rem";
+          el.style.top = startY / 10 + "rem";
+        }
+
+        function setResArr(el, index) {
+          resArr[index] = {
+            el,
+            char: el.innerText,
+          };
+        }
+
+        function checkResult() {
+          let idiom = "";
+
+          resArr.forEach((item) => {
+            idiom += item ? item.char : "";
+          });
+
+          return idioms.includes(idiom);
+        }
+
+        function resetPosition() {
+          resArr.forEach((item) => {
+            const el = item.el,
+              index = el.dataset.index,
+              { startX, startY } = charAreas[index];
+
+            setPosition(el, { ...charAreas[index] });
+          });
+
+          resArr = [];
+          startX = 0;
+          startY = 0;
+          cellX = 0;
+          cellY = 0;
+          mouseX = 0;
+          mouseY = 0;
+        }
+
+
+        function canCover(target, moved) {
+          const targetW = target.offsetWidth
+          const targetH = target.offsetHeight
+          const movedW = moved.offsetWidth
+          const movedH = moved.offsetHeight
+
+          const targetX = target.getBoundingClientRect().left + targetW / 2
+          const targetY = target.getBoundingClientRect().top + targetH / 2
+          const movedWX = moved.getBoundingClientRect().left + movedW / 2
+          const movedWY = moved.getBoundingClientRect().top + movedW / 2
+
+          return (Math.abs(targetX - movedWX) < targetW / 2) && (Math.abs(targetY - movedWY) < targetH / 2)
+        }
+
+        init();
+      })();
+    </script>
+  </body>
+</html>
